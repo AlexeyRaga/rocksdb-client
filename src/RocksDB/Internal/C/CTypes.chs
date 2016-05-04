@@ -199,6 +199,14 @@ foreign import ccall safe "rocksdb/c.h &rocksdb_compactionfilterfactory_destroy"
 
 type CompareFun = OpaquePtr -> CString -> CSize -> CString -> CSize -> IO CInt
 
+mkCompareFun :: (ByteString -> ByteString -> Ordering) -> CompareFun
+mkCompareFun f =  \_ a sza b szb -> do
+        a' <- toBSLen (a, cIntConv sza)
+        b' <- toBSLen (b, cIntConv szb)
+        return $ case f a' b' of
+                   LT -> -1
+                   EQ -> 0
+                   GT -> 1
 
 
 foreign import ccall safe "rocksdb/c.h rocksdb_comparator_create"
