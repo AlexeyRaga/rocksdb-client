@@ -3,23 +3,16 @@ module Integration.IteratorSimpleSpec ( spec )
 where
 
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Except
 import           RocksDB
-import           RocksDB.Options
-import           RocksDB.ReadOptions
-import           RocksDB.WriteOptions
-import           System.Directory
-import           System.FilePath
 import           Test.Hspec
-import           Matchers
+import           TestContext
 import           Data.ByteString (ByteString)
-import           Data.ByteString.Char8 (singleton)
 
-dbPath :: IO FilePath
-dbPath  = (</> "rocksdb_iter_simple_example") <$> getTemporaryDirectory
+mkContext :: IO (RocksDB, ReadOptions, [(ByteString, ByteString)])
+mkContext = createContext "rocksdb_iter_simple_test"
 
 spec :: Spec
-spec = beforeAll createContext . afterAll (\(db, _, _) -> ensureSuccess $ close db) $
+spec = beforeAll mkContext . afterAll (\(db, _, _) -> ensureSuccess $ close db) $
   describe "RocksDB.Integration.IteratorSimpleSpec" $ do
     context "forward iterators" $ do
       it "iterate through" $ \(db, rOpts, input) -> ensureSuccess $ do
@@ -54,22 +47,6 @@ spec = beforeAll createContext . afterAll (\(db, _, _) -> ensureSuccess $ close 
       it "breakable iterator from starting point" $ \(db, rOpts, input) -> ensureSuccess $ do
          res <- runIteratorBackwardsFrom' db rOpts [] "g" takeOne
          liftIO $ res `shouldBe` (take 1 . drop 6) input
-
-createContext :: IO (RocksDB, ReadOptions, [(ByteString, ByteString)])
-createContext = do
-  res <- runExceptT create
-  case res of
-    Right x -> return x
-    Left _ -> undefined
-  where
-    create = do
-      path  <- liftIO dbPath
-      db    <- open path (setCreateIfMissing True)
-      wOpts <- defaultWriteOptions
-      rOpts <- defaultReadOptions
-      let input =  [(bs, bs) | x <- ['a' .. 'z'], let bs = singleton x]
-      mapM_ (uncurry $ put db wOpts) input
-      return (db, rOpts, input)
 
 takeOne :: [(ByteString, ByteString)] -> (ByteString, ByteString) -> Iterate [(ByteString, ByteString)]
 takeOne a b = IterateCompleted (b : a)

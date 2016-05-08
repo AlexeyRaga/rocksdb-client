@@ -12,6 +12,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Data.ByteString            (ByteString)
 import           Data.Maybe
+import           RocksDB.Comparator
 import           RocksDB.Internal.C
 import           RocksDB.Options
 import           RocksDB.ReadOptions
@@ -30,8 +31,8 @@ open :: FilePath              -- ^ Path where the database files are located
      -> OptionsBuilder        -- ^ Database options (see 'OptionsBuilder').
      -> RocksDBResult RocksDB -- ^ RocksDB handle. Mush be closed with the 'close' function.
 open p o = do
-    (Options opt) <- liftIO $ createOptions o
-    res <- liftIO $ c_rocksdb_open opt p
+    opt@(Options _ o') <- liftIO $ createOptions o
+    res <- liftIO $ c_rocksdb_open o' p
     hoistEither $ RocksDB opt <$> res
 
 -- | Opens RocksDB database in read only mode
@@ -40,14 +41,16 @@ openForReadOnly :: FilePath              -- ^ Path where the database files are 
                 -> ErrorIfExists         -- ^ Error if log file exists
                 -> RocksDBResult RocksDB -- ^ RocksDB handle. Mush be closed with the 'close' function.
 openForReadOnly p o (ErrorIfExists e) = do
-    (Options opt) <- liftIO $ createOptions o
-    res <- liftIO $ c_rocksdb_open_for_read_only opt p e
+    opt@(Options _ o') <- liftIO $ createOptions o
+    res <- liftIO $ c_rocksdb_open_for_read_only o' p e
     hoistEither $ RocksDB opt <$> res
 
 -- | Closes the database handle.
 close :: RocksDB -> RocksDBResult ()
-close (RocksDB _ r) =
-    liftIO (c_rocksdb_close r) >>= (hoistEither . Right)
+close (RocksDB (Options c _) r) = do
+    res <- liftIO (c_rocksdb_close r)
+    liftIO $ mapM_ releaseComparator c
+    (hoistEither . Right) res
 
 -- | Puts a given key/value pair to the database.
 put :: RocksDB           -- ^ RocksDB handle

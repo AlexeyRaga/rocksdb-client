@@ -17,15 +17,8 @@ module RocksDB.Options
 
 where
 
-import           Control.Monad
-import           RocksDB.Internal.C
-
-data Options = Options OptionsFPtr
-data OptionsBuilder = OptionsBuilder { runOptionsBuilder :: Options -> IO Options }
-
-instance Monoid OptionsBuilder where
-    mempty = OptionsBuilder return
-    mappend a b = OptionsBuilder (runOptionsBuilder a >=> runOptionsBuilder b)
+import RocksDB.Internal.C
+import RocksDB.Types
 
 -- | Creates 'Options' given a specification
 --
@@ -34,7 +27,7 @@ instance Monoid OptionsBuilder where
 --                          <> setCompaction LevelCompaction
 -- @
 createOptions :: OptionsBuilder -> IO Options
-createOptions o = (Options <$> c_rocksdb_options_create) >>= runOptionsBuilder o
+createOptions o = (Options Nothing <$> c_rocksdb_options_create) >>= runOptionsBuilder o
 
 -- | Creates new 'Options'
 defaultOptions :: OptionsBuilder
@@ -78,6 +71,8 @@ setUseFsync b =
 
 --------------------------------------------------------------------------------
 withOptionsBuilder :: (OptionsFPtr -> IO ()) -> OptionsBuilder
-withOptionsBuilder f = OptionsBuilder $ \(Options o) -> f o >> return (Options o)
+withOptionsBuilder f =
+    OptionsBuilder $ \(Options c o) -> f o >> return (Options c o)
 {-# INLINE withOptionsBuilder #-}
+
 

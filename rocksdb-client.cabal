@@ -49,6 +49,7 @@ library
                   , RocksDB.Internal.C.CTypes
                   , RocksDB.Internal.C.COptions
                   , RocksDB.Internal.C.CRocksDB
+                  , RocksDB.Comparator
 
   default-language: Haskell2010
 
@@ -90,7 +91,31 @@ executable rocksdb-simple
     buildable:      False
 
   extra-libraries:  rocksdb
+
+executable rocksdb-comparator
+  hs-source-dirs:   examples
+  main-is:          ComparatorExample.hs
+  default-language: Haskell2010
+  ghc-options:      -Wall -O -rtsopts
+  build-depends:    base
+                  , bytestring
+                  , directory
+                  , errors
+                  , filepath
+                  , rocksdb-client
+                  , transformers
+  ghc-options:      -Wall -threaded -rtsopts -main-is ComparatorExample
+                  --  -prof -fprof-auto 
   
+  if flag(Examples)
+    buildable:      True
+  else
+    buildable:      False
+
+  extra-libraries:  rocksdb
+  -- ghc-prof-options: -prof -auto-all -fprof-auto
+  
+
 executable rocksdb-low-level-simple
   hs-source-dirs:   examples
   main-is:          LowLevelSimple.hs
@@ -122,6 +147,9 @@ test-suite rocksdb-tests
   
   other-modules:    Integration.SimpleSpec
                   , Integration.IteratorSimpleSpec
+                  , Integration.ComparatorSpec
+                  , Integration.ManyPutsSpec
+                  , TestContext
 
   build-depends:    QuickCheck       >= 2.7
                   , base

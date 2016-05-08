@@ -1,8 +1,10 @@
 {-# LANGUAGE EmptyDataDecls           #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE BangPatterns             #-}
 
 module RocksDB.Internal.C.CTypes where
 
+import Control.Monad
 import Foreign
 import Foreign.C.Types
 import Foreign.C.String
@@ -20,11 +22,10 @@ type ErrorIfLogExists = Bool
 type Destructor = OpaquePtr -> ()
 type NameFun = OpaquePtr -> CString
 
--- | Make a destructor FunPtr
-foreign import ccall "wrapper" mkDest :: Destructor -> IO (FunPtr Destructor)
-
--- | Make a name FunPtr
+foreign import ccall "wrapper" mkDestructor :: Destructor -> IO (FunPtr Destructor)
 foreign import ccall "wrapper" mkName :: NameFun -> IO (FunPtr NameFun)
+type DestructorFunPtr = FunPtr Destructor
+type NameFunPtr = FunPtr NameFun
 
 type CInt64T  = {#type int64_t  #}
 type CInt32T  = {#type int32_t  #}
@@ -198,16 +199,17 @@ foreign import ccall safe "rocksdb/c.h &rocksdb_compactionfilterfactory_destroy"
 ----------------------------------------------
 
 type CompareFun = OpaquePtr -> CString -> CSize -> CString -> CSize -> IO CInt
+type CompareFunPtr = FunPtr CompareFun
+foreign import ccall "wrapper" mkCompareFunPtr :: CompareFun -> IO CompareFunPtr
 
 mkCompareFun :: (ByteString -> ByteString -> Ordering) -> CompareFun
-mkCompareFun f =  \_ a sza b szb -> do
+mkCompareFun f =  \_ !a sza !b szb -> do
         a' <- toBSLen (a, cIntConv sza)
         b' <- toBSLen (b, cIntConv szb)
         return $ case f a' b' of
                    LT -> -1
                    EQ -> 0
                    GT -> 1
-
 
 foreign import ccall safe "rocksdb/c.h rocksdb_comparator_create"
   c_rocksdb_comparator_create :: OpaquePtr
@@ -233,6 +235,7 @@ type CCreateFilterCb = OpaquePtr
                     -> CInt        -- ^ num keys
                     -> Ptr CSize   -- ^ filter length
                     -> IO CString  -- ^ the filter
+
 type CKeyMayMatchCb = OpaquePtr
                    -> CString     -- ^ key
                    -> CSize       -- ^ key length

@@ -3,23 +3,17 @@ module Integration.SimpleSpec ( spec )
 where
 
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Except
-import           Matchers
 import           RocksDB
 import           RocksDB.Options
-import           RocksDB.ReadOptions
 import           RocksDB.WriteOptions
-import           System.Directory
-import           System.FilePath
 import           Test.Hspec
-
-dbPath :: IO FilePath
-dbPath  = (</> "rocksdb_simple_example") <$> getTemporaryDirectory
+import           TestContext
 
 spec :: Spec
 spec = describe "RocskDB.Integration.SimpleSpec" $
     it "put, get, delete" $ ensureSuccess $ do
-        path <- liftIO dbPath
+        path <- liftIO $ dbPath "rocksdb_simple_example"
+        liftIO $ print ("DB in: " ++ path)
         db   <- open path (setCreateIfMissing True)
 
         wOpts <- defaultWriteOptions
